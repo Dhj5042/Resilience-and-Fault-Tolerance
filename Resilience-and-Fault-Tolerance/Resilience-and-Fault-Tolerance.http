@@ -1,0 +1,6 @@
+@Resilience_and_Fault_Tolerance_HostAddress = http://localhost:5088
+
+GET {{Resilience_and_Fault_Tolerance_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

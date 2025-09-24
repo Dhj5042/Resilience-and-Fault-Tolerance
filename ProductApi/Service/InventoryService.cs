@@ -1,4 +1,4 @@
-﻿using System.Net;
+﻿using Polly.CircuitBreaker;
 
 namespace ProductApi.Service
 {
@@ -17,19 +17,20 @@ namespace ProductApi.Service
         {
             try
             {
-                var response = await _httpClient.GetAsync("/api/InventoryApi");
+                // Main inventory endpoint (deterministic first 3 failures on provider side)
+                var response = await _httpClient.GetAsync("/api/inventory");
 
-                if (response.StatusCode == HttpStatusCode.InternalServerError)
+                if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("Received 500 from Inventory API");
+                    _logger.LogWarning("Inventory API returned non-success status: {Status}", response.StatusCode);
                 }
 
                 response.EnsureSuccessStatusCode();
                 return await response.Content.ReadAsStringAsync();
             }
-            catch (Polly.CircuitBreaker.BrokenCircuitException ex)
+            catch (BrokenCircuitException ex)
             {
-                _logger.LogError(ex, "Circuit is open. Inventory API calls are blocked.");
+                _logger.LogWarning(ex, "Circuit open - returning degraded response");
                 return "Service unavailable due to open circuit. Please try again later.";
             }
             catch (Exception ex)
@@ -39,5 +40,19 @@ namespace ProductApi.Service
             }
         }
 
+        // Optional: method to consume random failure simulation endpoint
+        public async Task<string> GetInventoryRandomAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync("/api/inventory/random", cancellationToken);
+                return await response.Content.ReadAsStringAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calling randomized inventory endpoint");
+                return $"Error: {ex.Message}";
+            }
+        }
     }
 }
